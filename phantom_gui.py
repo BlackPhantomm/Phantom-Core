@@ -1,5 +1,8 @@
+# phantom_gui.py (Version 1.2 Demo - Complete Controller)
+
 import customtkinter as ctk
 import os
+import sys
 import json
 import re
 import time
@@ -7,43 +10,52 @@ import threading
 from tkinter import filedialog
 from PIL import Image
 
+# CRITICAL FIX: Add current working directory to path (for system module resolution)
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+# Import security and validation functions
+from encryption import encrypt_data # ONLY encrypt_data is imported for save functionality
+from validation import validate_protocol_data 
+
+# Import configuration and pages
+from config import ACCENT_COLOR, VAULT_COLOR, SIDEBAR_COLOR, CARD_COLOR, TEXT_MAIN, TEXT_DIM, BORDER_COLOR
+from filament_page import FilamentPage
+from process_page import ProcessPage
+from printer_page import PrinterPage
+from vault_page import VaultPage # Imports the simple placeholder VaultPage
+
 # --- CONFIGURATION ---
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
-
-# --- PALETTE ---
-ACCENT_COLOR = "#00A8E8"    # Cyan
-VAULT_COLOR = "#D9534F"     # Red
-HOVER_COLOR = "#007EA7"     # Darker Cyan
-BG_COLOR = "#0D1117"        # Black/Grey
-SIDEBAR_COLOR = "#161B22"   # Sidebar Grey
-CARD_COLOR = "#21262D"      # Card Grey
-TEXT_MAIN = "#C9D1D9"       # White-ish
-TEXT_DIM = "#8B949E"        # Grey Text
-BORDER_COLOR = "#30363D"    # Borders
 
 class PhantomApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
         # Window Setup
-        self.title("PHANTOM CORE v1.0")
+        self.title("PHANTOM CORE v1.2") # CORRECTED VERSION NUMBER
         self.geometry("1100x850")
-        self.configure(fg_color=BG_COLOR)
+        self.configure(fg_color="#0D1117")
 
         # Path Setup
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
         self.icon_path = os.path.join(self.script_dir, "phantom.ico")
         self.logo_path = os.path.join(self.script_dir, "phantom_logo.png")
 
-        # MEMORY: Stores paths for each category
-        self.paths = {
-            "filament": "",
-            "process": "",
-            "printer": ""
-        }
+        # --- STATE MANAGEMENT ---
+        self.paths = {"filament": "", "process": "", "printer": ""}
+        self.current_mode = None
+        self.current_page = None
+        self.SIDEBAR_COLOR = SIDEBAR_COLOR
+        self.BORDER_COLOR = BORDER_COLOR
+        self.CARD_COLOR = CARD_COLOR
+        
+        # UI references needed for the controller's save/update logic
+        self.path_entry = None
+        self.page_fields = {}
+        self.btn_action = None
+        self.progress = None
 
-        # Load Icon
         if os.path.exists(self.icon_path):
             self.iconbitmap(self.icon_path)
 
@@ -58,12 +70,13 @@ class PhantomApp(ctk.CTk):
 
         self.setup_sidebar_header()
 
-        self.btn_filament = self.create_nav_btn(":: FILAMENT", self.show_filament_page, 0.20)
-        self.btn_process = self.create_nav_btn(":: PROCESS", self.show_process_page, 0.28)
-        self.btn_printer = self.create_nav_btn(":: PRINTER", self.show_printer_page, 0.36)
+        # NAVIGATION BUTTONS
+        self.btn_filament = self.create_nav_btn(":: FILAMENT", lambda: self.show_page(FilamentPage), 0.20)
+        self.btn_process = self.create_nav_btn(":: PROCESS", lambda: self.show_page(ProcessPage), 0.28)
+        self.btn_printer = self.create_nav_btn(":: PRINTER", lambda: self.show_page(PrinterPage), 0.36)
         
         self.btn_vault = ctk.CTkButton(
-            self.sidebar, text=":: THE VAULT", command=self.show_vault_page,
+            self.sidebar, text=":: THE VAULT", command=lambda: self.show_page(VaultPage),
             fg_color="transparent", text_color=VAULT_COLOR, hover_color=CARD_COLOR,
             anchor="w", height=50, font=ctk.CTkFont(size=14, weight="bold"), border_spacing=20
         )
@@ -76,9 +89,142 @@ class PhantomApp(ctk.CTk):
         self.main_area = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self.main_area.grid(row=0, column=1, sticky="nsew", padx=40, pady=40)
 
-        self.show_filament_page()
+        self.show_page(FilamentPage)
 
-    # --- HELPERS ---
+    # --- PAGE NAVIGATION ---
+    def show_page(self, page_class):
+        self.clear_ui()
+        if self.current_page:
+            self.current_page.destroy()
+
+        if page_class == FilamentPage:
+            self.set_active_nav(self.btn_filament)
+            self.current_page = FilamentPage(self.main_area, self)
+        elif page_class == ProcessPage:
+            self.set_active_nav(self.btn_process)
+            self.current_page = ProcessPage(self.main_area, self)
+        elif page_class == PrinterPage:
+            self.set_active_nav(self.btn_printer)
+            self.current_page = PrinterPage(self.main_area, self)
+        elif page_class == VaultPage:
+            self.set_active_nav(self.btn_vault)
+            self.current_page = VaultPage(self.main_area, self) # Loads the placeholder VaultPage
+
+    def clear_ui(self):
+        for widget in self.main_area.winfo_children():
+            widget.destroy()
+
+    # --- SAVE LOGIC (WITH VALIDATION & ENCRYPTION HOOK) ---
+    def initiate_save(self):
+        # Retrieve path from the active path_entry widget
+        base_path = self.path_entry.get() if self.path_entry else ""
+        if not base_path:
+            self.show_popup("MISSING PATH", "Please select a Target Directory first.")
+            return
+
+        # 1. RUN DATA VALIDATION
+        is_valid, error_msg = validate_protocol_data(self.current_mode, self.page_fields)
+        
+        if not is_valid:
+            # If data is invalid, stop the process and show an error popup
+            self.show_popup("VALIDATION FAILED", error_msg)
+            return
+            
+        # 2. If valid, proceed with animation and saving
+        self.btn_action.pack_forget()
+        self.progress.pack(fill="x", pady=(15,0))
+        self.status_label.configure(text="ENCRYPTING...", text_color=ACCENT_COLOR)
+        threading.Thread(target=self.run_simulation, daemon=True).start()
+
+    def run_simulation(self):
+        for i in range(101):
+            time.sleep(0.05)
+            self.progress.set(i / 100)
+        self.after(50, self.save_file)
+
+    def save_file(self):
+        try:
+            name = self.page_fields['entry_name'].get() if 'entry_name' in self.page_fields else ""
+            if not name:
+                self.show_popup("Error", "Name field is required.")
+                self.reset_ui()
+                return
+
+            # Retrieve Master Key (NOTE: This key will always be blank in the DEMO version)
+            master_key_entry = self.page_fields.get('entry_master_key')
+            master_key = master_key_entry.get() if master_key_entry and master_key_entry.winfo_exists() else ""
+
+            # Prepare File Paths
+            base_path = self.path_entry.get()
+            folder_name = f"{self.current_mode}s"
+            final_folder = os.path.join(base_path, folder_name)
+
+            if not os.path.exists(final_folder):
+                os.makedirs(final_folder, exist_ok=True)
+
+            file_id = f"phantom_{self.clean_id(name)}"
+            filename = f"{file_id}.json"
+            full_path = os.path.join(final_folder, filename)
+
+            # Assemble JSON Data
+            data = {
+                "id": file_id,
+                "type": self.current_mode,
+                "metadata": {"name": name, "timestamp": time.time(), "encrypted": bool(master_key)} 
+            }
+
+            # Data collection per mode
+            if self.current_mode == "filament":
+                data["print_settings"] = {
+                    "nozzle_temperature": self.page_fields['entry_temp'].get(),
+                    "bed_temperature": self.page_fields['entry_bed'].get()
+                }
+            elif self.current_mode == "process":
+                data["process_settings"] = {
+                    "layer_height": self.page_fields['entry_layer'].get(),
+                    "infill_density": self.page_fields['entry_infill'].get(),
+                }
+            elif self.current_mode == "printer":
+                data["hardware_settings"] = {
+                    "build_volume_x": self.page_fields['entry_size_x'].get(),
+                    "build_volume_y": self.page_fields['entry_size_y'].get(),
+                    "build_volume_z": self.page_fields['entry_size_z'].get(),
+                }
+
+            # ENCRYPTION/SAVE LOGIC
+            json_string = json.dumps(data, indent=2)
+
+            if master_key:
+                encrypted_bytes = encrypt_data(json_string.encode('utf-8'), master_key)
+                with open(full_path, 'wb') as f:
+                    f.write(encrypted_bytes)
+                
+                status_msg = f"ENCRYPTED! Saved to: {folder_name}/{filename}"
+                popup_msg = f"File saved and ENCRYPTED using Master Key:\n{full_path}"
+            else:
+                with open(full_path, 'w') as f:
+                    f.write(json_string)
+
+                status_msg = f"SAVED (Unencrypted): {folder_name}/{filename}"
+                popup_msg = f"File saved UNENCRYPTED:\n{full_path}"
+
+
+            self.status_label.configure(text=status_msg, text_color="#00FF00")
+            self.show_popup("SUCCESS", popup_msg)
+
+        except Exception as e:
+            if "InvalidKey" in str(e) or "InvalidToken" in str(e):
+                 self.show_popup("ENCRYPTION ERROR", "Invalid Master Key or Data Corruption. Check key.")
+            else:
+                self.show_popup("SYSTEM ERROR", str(e))
+
+        self.reset_ui()
+    
+    # --- DECRYPTION LOGIC: REMOVED FOR DEMO VERSION ---
+    # The decrypt_and_display_file method is NOT included in this file.
+
+
+    # --- RETAINED UTILITY METHODS ---
     def setup_sidebar_header(self):
         try:
             if os.path.exists(self.logo_path):
@@ -103,211 +249,26 @@ class PhantomApp(ctk.CTk):
     def set_active_nav(self, active_btn):
         for btn in [self.btn_filament, self.btn_process, self.btn_printer, self.btn_vault]:
             btn.configure(fg_color="transparent", border_width=0)
-        active_btn.configure(fg_color=CARD_COLOR, border_width=2, border_color=ACCENT_COLOR)
-
-    def clear_ui(self):
-        for widget in self.main_area.winfo_children():
-            widget.destroy()
-
-    # --- COMPONENT: PATH SELECTOR ---
-    def add_path_selector(self, mode):
-        card = ctk.CTkFrame(self.main_area, fg_color=CARD_COLOR, border_width=1, border_color=ACCENT_COLOR)
-        card.pack(fill="x", pady=(0, 20), ipadx=10, ipady=10)
         
-        header = ctk.CTkLabel(card, text="TARGET DIRECTORY", font=ctk.CTkFont(size=12, weight="bold"), text_color=ACCENT_COLOR)
-        header.pack(anchor="w", padx=10)
-
-        row = ctk.CTkFrame(card, fg_color="transparent")
-        row.pack(fill="x", pady=(5, 0), padx=10)
-
-        self.path_entry = ctk.CTkEntry(row, placeholder_text="No directory selected...", text_color="white", fg_color=SIDEBAR_COLOR, border_color=BORDER_COLOR)
-        self.path_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
-        
-        if self.paths[mode]:
-            self.path_entry.insert(0, self.paths[mode])
-        
-        btn = ctk.CTkButton(row, text="BROWSE", width=100, command=lambda: self.browse_folder(mode), fg_color=SIDEBAR_COLOR, hover_color=HOVER_COLOR)
-        btn.pack(side="right")
-
-    def browse_folder(self, mode):
+        if active_btn:
+            active_btn.configure(fg_color=CARD_COLOR, border_width=2, border_color=ACCENT_COLOR)
+            
+    def browse_folder(self, mode, entry_widget):
         folder = filedialog.askdirectory(title=f"Select Base Folder for {mode.upper()}S")
         if folder:
             self.paths[mode] = folder
-            self.path_entry.delete(0, "end")
-            self.path_entry.insert(0, folder)
+            entry_widget.delete(0, "end")
+            entry_widget.insert(0, folder)
             self.status_label.configure(text="PATH UPDATED", text_color=ACCENT_COLOR)
-
-    # --- PAGES ---
-
-    def show_filament_page(self):
-        self.clear_ui()
-        self.current_mode = "filament"
-        self.set_active_nav(self.btn_filament)
-        self.add_title("FILAMENT PROTOCOL")
-        
-        self.add_path_selector("filament")
-
-        card_id = self.create_card("IDENTITY")
-        self.entry_name = self.create_field(card_id, "Display Name", "e.g. Phantom PLA+")
-        self.entry_material = self.create_field(card_id, "Material Type", "PLA")
-        self.entry_color = self.create_field(card_id, "Color Hex", "#0000FF")
-
-        card_temp = self.create_card("THERMAL PHYSICS")
-        self.entry_temp = self.create_field(card_temp, "Nozzle Temperature (°C)", "210")
-        self.entry_bed = self.create_field(card_temp, "Bed Temperature (°C)", "60")
-
-        self.add_action_button("GENERATE FILAMENT")
-
-    def show_process_page(self):
-        self.clear_ui()
-        self.current_mode = "process"
-        self.set_active_nav(self.btn_process)
-        self.add_title("PROCESS CONFIGURATION")
-        
-        self.add_path_selector("process")
-        
-        card = self.create_card("METADATA")
-        self.entry_name = self.create_field(card, "Profile Name", "e.g. Phantom Fast 0.20")
-
-        card_mech = self.create_card("MECHANICS")
-        self.entry_layer = self.create_field(card_mech, "Layer Height", "0.20")
-        self.entry_speed = self.create_field(card_mech, "Speed (mm/s)", "200")
-
-        self.add_action_button("GENERATE PROCESS")
-
-    def show_printer_page(self):
-        self.clear_ui()
-        self.current_mode = "printer"
-        self.set_active_nav(self.btn_printer)
-        self.add_title("PRINTER DEFINITION")
-        
-        self.add_path_selector("printer")
-        
-        card = self.create_card("HARDWARE INFO")
-        self.entry_name = self.create_field(card, "Model Name", "e.g. Creality K1")
-
-        self.add_action_button("GENERATE PRINTER")
-
-    def show_vault_page(self):
-        self.clear_ui()
-        self.current_mode = "vault"
-        self.set_active_nav(self.btn_vault)
-        self.add_title("THE VAULT")
-        
-        desc = ctk.CTkLabel(self.main_area, text="Steganography Suite: Hide data inside standard image files.", text_color=TEXT_DIM)
-        desc.pack(anchor="w", pady=(0, 20))
-
-        card = self.create_card("ENCRYPTION TARGETS")
-        ctk.CTkButton(card, text="SELECT COVER IMAGE", fg_color=SIDEBAR_COLOR).pack(fill="x", pady=5)
-        ctk.CTkButton(card, text="SELECT PAYLOAD JSON", fg_color=SIDEBAR_COLOR).pack(fill="x", pady=5)
-
-        self.add_action_button("ENCRYPT TO IMAGE")
-
-    # --- UI COMPONENTS ---
-    def add_title(self, text):
-        lbl = ctk.CTkLabel(self.main_area, text=text, font=ctk.CTkFont(size=26, weight="bold"), text_color=TEXT_MAIN)
-        lbl.pack(anchor="w", pady=(0, 20))
-
-    def create_card(self, title):
-        card = ctk.CTkFrame(self.main_area, fg_color=CARD_COLOR)
-        card.pack(fill="x", pady=(0, 20), ipadx=20, ipady=15)
-        ctk.CTkLabel(card, text=title, font=ctk.CTkFont(size=12, weight="bold"), text_color=ACCENT_COLOR).pack(anchor="w", pady=(0, 10))
-        return card
-
-    def create_field(self, parent, label_text, placeholder):
-        frame = ctk.CTkFrame(parent, fg_color="transparent")
-        frame.pack(fill="x", pady=5)
-        ctk.CTkLabel(frame, text=label_text, width=150, anchor="w", text_color=TEXT_MAIN).pack(side="left")
-        entry = ctk.CTkEntry(frame, placeholder_text=placeholder, fg_color=SIDEBAR_COLOR, border_color=BORDER_COLOR, text_color="white")
-        entry.pack(side="right", fill="x", expand=True)
-        return entry
-
-    def add_action_button(self, text):
-        frame = ctk.CTkFrame(self.main_area, fg_color="transparent")
-        frame.pack(fill="x", pady=(20, 0))
-
-        self.btn_action = ctk.CTkButton(frame, text=text, command=self.initiate_save, height=50, fg_color=ACCENT_COLOR, hover_color=HOVER_COLOR, font=ctk.CTkFont(size=15, weight="bold"))
-        self.btn_action.pack(fill="x")
-        
-        self.progress = ctk.CTkProgressBar(frame, height=15, progress_color=ACCENT_COLOR)
-        self.progress.set(0)
-
-    # --- LOGIC ---
-    def initiate_save(self):
-        if self.current_mode == "vault":
-             pass
-        else:
-            current_path_in_box = self.path_entry.get()
-            if not current_path_in_box:
-                self.show_popup("MISSING PATH", "Please select a Target Directory first.")
-                return
-
-        self.btn_action.pack_forget()
-        self.progress.pack(fill="x", pady=(15,0))
-        self.status_label.configure(text="ENCRYPTING...", text_color=ACCENT_COLOR)
-        threading.Thread(target=self.run_simulation, daemon=True).start()
-
-    def run_simulation(self):
-        for i in range(101):
-            time.sleep(0.1) 
-            self.progress.set(i / 100)
-        self.after(100, self.save_file)
-
-    def clean_id(self, name):
-        return re.sub(r'[^a-z0-9]+', '_', name.lower()).strip('_')
-
-    def save_file(self):
-        try:
-            if self.current_mode == "vault":
-                self.show_popup("Pending", "Vault logic coming soon.")
-                self.reset_ui()
-                return
-
-            name = self.entry_name.get()
-            if not name: 
-                self.show_popup("Error", "Name field is required.")
-                self.reset_ui()
-                return
-
-            base_path = self.path_entry.get()
-            folder_name = f"{self.current_mode}s"
-            final_folder = os.path.join(base_path, folder_name)
-
-            if not os.path.exists(final_folder):
-                os.makedirs(final_folder, exist_ok=True)
-            
-            file_id = f"phantom_{self.clean_id(name)}"
-            filename = f"{file_id}.json"
-            full_path = os.path.join(final_folder, filename)
-
-            data = {
-                "id": file_id, 
-                "type": self.current_mode, 
-                "metadata": {"name": name, "timestamp": time.time()}
-            }
-
-            if self.current_mode == "filament":
-                data["print_settings"] = {
-                    "nozzle_temperature": self.entry_temp.get(),
-                    "bed_temperature": self.entry_bed.get()
-                }
-
-            with open(full_path, 'w') as f:
-                json.dump(data, f, indent=2)
-
-            self.status_label.configure(text=f"SAVED TO: {folder_name}/{filename}", text_color="#00FF00")
-            self.show_popup("SUCCESS", f"File saved in:\n{full_path}")
-
-        except Exception as e:
-            self.show_popup("ERROR", str(e))
-        
-        self.reset_ui()
 
     def reset_ui(self):
         self.progress.pack_forget()
         self.btn_action.pack(fill="x")
         self.progress.set(0)
 
+    def clean_id(self, name):
+        return re.sub(r'[^a-z0-9]+', '_', name.lower()).strip('_')
+        
     def show_popup(self, title, message):
         popup = ctk.CTkToplevel(self)
         popup.geometry("500x200")
@@ -322,6 +283,7 @@ class PhantomApp(ctk.CTk):
         popup.transient(self)
         popup.grab_set()
 
+# --- RUN THE APP ---
 if __name__ == "__main__":
     app = PhantomApp()
     app.mainloop()
