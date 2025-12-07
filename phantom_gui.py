@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-# phantom_gui.py (Version 1.2 - Controller with Input Validation and Encryption)
-=======
 # phantom_gui.py (Version 1.2 Demo - Complete Controller)
->>>>>>> 7f7f24a1d05f003b1845570bdd6844ac15db18ed
 
 import customtkinter as ctk
 import os
@@ -18,11 +14,7 @@ from PIL import Image
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Import security and validation functions
-<<<<<<< HEAD
-from encryption import encrypt_data
-=======
 from encryption import encrypt_data # ONLY encrypt_data is imported for save functionality
->>>>>>> 7f7f24a1d05f003b1845570bdd6844ac15db18ed
 from validation import validate_protocol_data 
 
 # Import configuration and pages
@@ -30,11 +22,7 @@ from config import ACCENT_COLOR, VAULT_COLOR, SIDEBAR_COLOR, CARD_COLOR, TEXT_MA
 from filament_page import FilamentPage
 from process_page import ProcessPage
 from printer_page import PrinterPage
-<<<<<<< HEAD
-from vault_page import VaultPage
-=======
 from vault_page import VaultPage # Imports the simple placeholder VaultPage
->>>>>>> 7f7f24a1d05f003b1845570bdd6844ac15db18ed
 
 # --- CONFIGURATION ---
 ctk.set_appearance_mode("Dark")
@@ -120,21 +108,13 @@ class PhantomApp(ctk.CTk):
             self.current_page = PrinterPage(self.main_area, self)
         elif page_class == VaultPage:
             self.set_active_nav(self.btn_vault)
-<<<<<<< HEAD
-            self.current_page = VaultPage(self.main_area, self)
-=======
             self.current_page = VaultPage(self.main_area, self) # Loads the placeholder VaultPage
->>>>>>> 7f7f24a1d05f003b1845570bdd6844ac15db18ed
 
     def clear_ui(self):
         for widget in self.main_area.winfo_children():
             widget.destroy()
 
-<<<<<<< HEAD
-    # --- SAVE LOGIC (UPDATED WITH VALIDATION) ---
-=======
     # --- SAVE LOGIC (WITH VALIDATION & ENCRYPTION HOOK) ---
->>>>>>> 7f7f24a1d05f003b1845570bdd6844ac15db18ed
     def initiate_save(self):
         # Retrieve path from the active path_entry widget
         base_path = self.path_entry.get() if self.path_entry else ""
@@ -170,11 +150,7 @@ class PhantomApp(ctk.CTk):
                 self.reset_ui()
                 return
 
-<<<<<<< HEAD
-            # Retrieve Master Key
-=======
             # Retrieve Master Key (NOTE: This key will always be blank in the DEMO version)
->>>>>>> 7f7f24a1d05f003b1845570bdd6844ac15db18ed
             master_key_entry = self.page_fields.get('entry_master_key')
             master_key = master_key_entry.get() if master_key_entry and master_key_entry.winfo_exists() else ""
 
@@ -244,51 +220,8 @@ class PhantomApp(ctk.CTk):
 
         self.reset_ui()
     
-<<<<<<< HEAD
-    # --- DECRYPTION LOGIC FOR THE VAULT ---
-    def decrypt_and_display_file(self, master_key: str, output_widget):
-        from encryption import decrypt_data
-        
-        file_path = filedialog.askopenfilename(
-            defaultextension=".json",
-            filetypes=[("Protocol Files", "*.json")],
-            title="Select Protocol File to Decrypt"
-        )
-        
-        if not file_path:
-            return
-
-        try:
-            # 1. Read Encrypted Data (Binary Mode)
-            with open(file_path, 'rb') as f:
-                encrypted_bytes = f.read()
-            
-            # 2. Decrypt
-            decrypted_bytes = decrypt_data(encrypted_bytes, master_key)
-            decrypted_json_string = decrypted_bytes.decode('utf-8')
-            
-            # 3. Format and Display
-            output_widget.delete("1.0", "end")
-            
-            json_object = json.loads(decrypted_json_string)
-            pretty_json = json.dumps(json_object, indent=4)
-            
-            output_widget.insert("1.0", pretty_json)
-            self.status_label.configure(text=f"SUCCESS: Decrypted {os.path.basename(file_path)}", text_color="#00FF00")
-
-        except Exception as e:
-            output_widget.delete("1.0", "end")
-            output_widget.insert("1.0", "DECRYPTION FAILED. Invalid key or file format.")
-            self.status_label.configure(text="DECRYPTION FAILED", text_color="#FF0000")
-            
-            if "InvalidToken" in str(e):
-                self.show_popup("DECRYPTION FAILED", "Invalid Master Key. The password is incorrect.")
-            else:
-                 self.show_popup("DECRYPTION ERROR", f"Error reading file: {str(e)}")
-=======
     # --- DECRYPTION LOGIC: REMOVED FOR DEMO VERSION ---
     # The decrypt_and_display_file method is NOT included in this file.
->>>>>>> 7f7f24a1d05f003b1845570bdd6844ac15db18ed
 
 
     # --- RETAINED UTILITY METHODS ---
