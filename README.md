@@ -1,5 +1,8 @@
 # PHANTOM CORE v1.0
 
+<img width="554" height="444" alt="{29877968-965F-4C9C-AA32-1FAE8AD2215A}" src="https://github.com/user-attachments/assets/c3dc47af-b389-4b1f-81c1-8fb2cab4301a" />
+
+
 ![Phantom Core Badge](https://img.shields.io/badge/Phantom_Core-v1.0-cyan?style=for-the-badge)
 ![OpenPrint3D](https://img.shields.io/badge/OpenPrint3D-Compliant-green?style=for-the-badge)
 
