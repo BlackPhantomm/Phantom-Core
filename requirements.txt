@@ -1,0 +1,6 @@
+Needed to Run System
+
+customtkinter
+pyinstaller
+packaging
+pillow
