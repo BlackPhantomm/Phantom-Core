@@ -1,5 +1,13 @@
 # PHANTOM CORE v1.0
 
+
+
+<img width="553" height="440" alt="{5DC12071-8F9D-480A-9D67-143769BAD37E}" src="https://github.com/user-attachments/assets/9a1c2e89-edcb-441a-a52b-7d264ecb1665" />
+
+<img width="554" height="443" alt="{7F7099AB-FA79-4656-9A05-0FB3A8C139A7}" src="https://github.com/user-attachments/assets/61c03844-12d3-4ce6-89db-f8cba5948b4b" />
+
+<img width="554" height="443" alt="{E5D6E6E1-BE26-4738-A157-F32528D6DBF2}" src="https://github.com/user-attachments/assets/b40afe01-0c20-4409-a921-88b2565c23e6" />
+
 <img width="554" height="444" alt="{29877968-965F-4C9C-AA32-1FAE8AD2215A}" src="https://github.com/user-attachments/assets/c3dc47af-b389-4b1f-81c1-8fb2cab4301a" />
 
 
