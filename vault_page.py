@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # vault_page.py (Complete Vault UI)
 
 from base_page import BasePage
@@ -5,20 +6,31 @@ from config import ACCENT_COLOR, VAULT_COLOR, TEXT_MAIN, SIDEBAR_COLOR, CARD_COL
 import customtkinter as ctk
 from tkinter import filedialog
 import json
+=======
+# vault_page.py (V1.2 DEMO Placeholder)
+
+from base_page import BasePage
+from config import ACCENT_COLOR, VAULT_COLOR, TEXT_MAIN
+import customtkinter as ctk
+>>>>>>> 7f7f24a1d05f003b1845570bdd6844ac15db18ed
 
 class VaultPage(BasePage):
     def __init__(self, master, controller, **kwargs):
         super().__init__(master, controller, **kwargs)
         self.controller.current_mode = "vault"
+<<<<<<< HEAD
         self.SIDEBAR_COLOR = SIDEBAR_COLOR # Pass colors for local use
         self.BORDER_COLOR = BORDER_COLOR
         self.CARD_COLOR = CARD_COLOR
         self.TEXT_MAIN = TEXT_MAIN
+=======
+>>>>>>> 7f7f24a1d05f003b1845570bdd6844ac15db18ed
         self.render_ui()
 
     def render_ui(self):
         self.add_title("THE VAULT")
         
+<<<<<<< HEAD
         ctk.CTkLabel(self, text="MASTER KEY & LOG MANAGEMENT", font=ctk.CTkFont(size=20), text_color=VAULT_COLOR).pack(pady=(50, 10))
 
         # --- MASTER KEY INPUT ---
@@ -53,3 +65,11 @@ class VaultPage(BasePage):
 
         # Use the controller's logic to open and decrypt the file
         self.controller.decrypt_and_display_file(master_key, self.text_output)
+=======
+        ctk.CTkLabel(self, text="ENCRYPTED PROTOCOL MANAGEMENT", font=ctk.CTkFont(size=20), text_color=VAULT_COLOR).pack(pady=(50, 20))
+        ctk.CTkLabel(self, text="This feature is currently undergoing final testing and will be released in the next patch (v1.3).", wraplength=700, text_color=TEXT_MAIN).pack(pady=10)
+
+        # Placeholder button
+        self.btn_action = ctk.CTkButton(self, text="FEATURE UNDER CONSTRUCTION", command=lambda: self.controller.show_popup("Vault Access", "This feature is currently disabled."), height=50, fg_color=VAULT_COLOR, hover_color=ACCENT_COLOR, font=ctk.CTkFont(size=15, weight="bold"))
+        self.btn_action.pack(pady=(50, 0), ipadx=20)
+>>>>>>> 7f7f24a1d05f003b1845570bdd6844ac15db18ed
